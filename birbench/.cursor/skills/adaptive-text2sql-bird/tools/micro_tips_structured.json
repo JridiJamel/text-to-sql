@@ -1,0 +1,1975 @@
+{
+  "version": "2.0",
+  "description": "Structured tips for micro phase SQL generation. Each tip is independently retrievable and executable.",
+  "categories": {
+    "evidence_enforcement": "Tips for correctly implementing evidence (HIGHEST PRIORITY)",
+    "string_matching": "Tips for choosing = vs LIKE",
+    "output_columns": "Tips for selecting correct output columns",
+    "table_selection": "Tips for choosing tables and joins",
+    "column_interpretation": "Tips for understanding column names",
+    "schema_grounding": "Tips for mapping logical concepts to schema",
+    "join_strategy": "Tips for implementing joins",
+    "filter_implementation": "Tips for implementing WHERE conditions",
+    "aggregation": "Tips for aggregation and calculations",
+    "sorting_limiting": "Tips for ORDER BY and LIMIT",
+    "multi_step_logic": "Tips for subqueries and CTEs",
+    "sql_syntax": "Tips for SQL syntax correctness",
+    "common_pitfalls": "Tips for avoiding common errors",
+    "advanced_patterns": "Tips for advanced SQL patterns"
+  },
+  "tips": [
+    {
+      "id": "TIP001",
+      "category": "evidence_enforcement",
+      "priority": "critical",
+      "title": "Evidence-Specified Column Must Be Used Exactly",
+      "description": "When evidence specifies a column name, explore using that exact column. Do NOT substitute with similar columns.",
+      "when_to_apply": [
+        "Evidence EXPLICITLY uses '=' or 'can be represented as' with column name (e.g., 'EILCode = HS', 'X can be represented as column_name = value')",
+        "Evidence shows: [concept] = [column_name] = [value]",
+        "NOT just mentioning a concept - must show the exact column assignment"
+      ],
+      "how_to_apply": [
+        "1. Parse evidence to identify if a column name is specified",
+        "2. Use [EXPLORE] to verify the column exists in the schema",
+        "3. Use the exact column name in your WHERE clause",
+        "4. Do NOT substitute with semantically similar columns even if they seem more appropriate"
+      ],
+      "example": {
+        "case_id": "bird_0076",
+        "question": "What is the city of high school with Lunch Provision 2...",
+        "evidence": "High school can be represented as EILCode = 'HS'",
+        "correct": "WHERE EILCode = 'HS'",
+        "wrong": "WHERE \"School Type\" = 'High Schools (Public)'",
+        "why_wrong": "This ignores evidence-specified column! Even though 'School Type' seems semantically correct, evidence explicitly specifies EILCode."
+      },
+      "related_tips": [
+        "TIP002",
+        "TIP003",
+        "TIP004"
+      ],
+      "when_NOT_to_apply": [
+        "Evidence only describes what a term means without naming a column",
+        "Evidence says 'X refers to Y' where Y is a concept, not a column name",
+        "No explicit column name in evidence"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "evidence",
+        "column",
+        "exact_column",
+        "column_specification",
+        "evidence_column"
+      ]
+    },
+    {
+      "id": "TIP002",
+      "category": "evidence_enforcement",
+      "priority": "critical",
+      "title": "Evidence-Specified Formula Must Be Implemented Exactly",
+      "description": "When evidence provides a calculation formula, explore implementing it EXACTLY as specified. Do NOT use built-in functions that seem equivalent.",
+      "when_to_apply": [
+        "Evidence contains an EXPLICIT mathematical formula with operators (e.g., 'Average = sum / count', 'X = A + B - C')",
+        "Evidence says 'calculate X as formula' or 'X is defined as formula'",
+        "NOT just mentioning a calculation - must provide the exact formula"
+      ],
+      "how_to_apply": [
+        "1. Identify the formula in evidence",
+        "2. Implement the formula using the exact operations specified",
+        "3. Do NOT replace with built-in aggregate functions (e.g., AVG())",
+        "4. Use CAST to ensure proper data types (e.g., CAST(x AS REAL) for division)"
+      ],
+      "example": {
+        "case_id": "bird_0025",
+        "question": "Schools where average of average math score > 400",
+        "evidence": "Average of average math = sum(average math scores) / count(schools)",
+        "correct": "HAVING CAST(SUM(AvgScrMath) AS REAL) / COUNT(cds) > 400",
+        "wrong": "HAVING AVG(AvgScrMath) > 400",
+        "why_wrong": "This uses built-in AVG() instead of evidence formula sum/count. The semantics may differ (e.g., handling of NULLs, grouping level)."
+      },
+      "related_tips": [
+        "TIP001",
+        "TIP027",
+        "TIP040"
+      ],
+      "when_NOT_to_apply": [
+        "Evidence only mentions a metric name without formula",
+        "Question asks for calculation but evidence doesn't specify how",
+        "Standard aggregations (SUM, AVG, COUNT) without special formula"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "evidence",
+        "formula",
+        "calculation",
+        "exact_formula",
+        "sum",
+        "count",
+        "division"
+      ]
+    },
+    {
+      "id": "TIP003",
+      "category": "evidence_enforcement",
+      "priority": "critical",
+      "title": "Evidence-Specified Value Must Be Used Exactly",
+      "description": "When evidence provides value mappings, explore using the EXACT database value, not the English translation or interpretation.",
+      "when_to_apply": [
+        "Evidence contains EXPLICIT value mapping: 'database_value' stands for/means 'english_term' (e.g., \"'POPLATEK TYDNE' stands for weekly\")",
+        "Evidence shows the EXACT database value (often in quotes) that differs from question term",
+        "Foreign language, codes, or abbreviations that need translation"
+      ],
+      "how_to_apply": [
+        "1. Identify value mappings in evidence",
+        "2. Use the database value (left side of mapping), not the meaning (right side)",
+        "3. Do NOT translate or interpret the value",
+        "4. Use exact match (=) with the database value"
+      ],
+      "example": {
+        "question": "Accounts with weekly issuance",
+        "evidence": "'POPLATEK TYDNE' stands for weekly issuance",
+        "correct": "WHERE frequency = 'POPLATEK TYDNE'",
+        "wrong": "WHERE frequency = 'weekly'",
+        "why_wrong": "This translates the value instead of using the exact database value specified in evidence."
+      },
+      "related_tips": [
+        "TIP001",
+        "TIP005",
+        "TIP023"
+      ],
+      "when_NOT_to_apply": [
+        "Evidence only explains a concept without showing database value",
+        "Evidence says 'X refers to column_name' (that's TIP001, not TIP003)",
+        "No quoted database value in evidence"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "evidence",
+        "value",
+        "exact_value",
+        "value_mapping",
+        "foreign_language",
+        "code"
+      ]
+    },
+    {
+      "id": "TIP004",
+      "category": "evidence_enforcement",
+      "priority": "critical",
+      "title": "Evidence Clarifies Ambiguous Terms",
+      "description": "When evidence clarifies which column or table an ambiguous term refers to, explore following the evidence interpretation.",
+      "when_to_apply": [
+        "Evidence EXPLICITLY says 'X refers to column_name' or 'X means column_name'",
+        "Question uses ambiguous term AND evidence clarifies which column",
+        "Multiple similar columns exist and evidence specifies which one"
+      ],
+      "how_to_apply": [
+        "1. Identify ambiguous terms in the question",
+        "2. Check if evidence provides clarification",
+        "3. Use the column/table specified by evidence",
+        "4. Do NOT use alternative interpretations even if they seem reasonable"
+      ],
+      "example": {
+        "question": "Schools in Riverside",
+        "evidence": "'Riverside' refers to District Name",
+        "correct": "WHERE \"District Name\" LIKE 'Riverside%'",
+        "wrong": "WHERE City = 'Riverside'",
+        "why_wrong": "Evidence clarifies that 'Riverside' refers to District Name, not City. Ignoring this leads to wrong results."
+      },
+      "related_tips": [
+        "TIP001",
+        "TIP015",
+        "TIP017"
+      ],
+      "when_NOT_to_apply": [
+        "Evidence only provides context without column specification",
+        "Only one relevant column exists (no ambiguity)",
+        "Evidence describes concept but doesn't name column"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "evidence",
+        "ambiguous",
+        "clarification",
+        "column_disambiguation"
+      ]
+    },
+    {
+      "id": "TIP005",
+      "category": "string_matching",
+      "priority": "high",
+      "title": "Use Exact Match (=) When Value Is Known",
+      "description": "When question or evidence provides a specific value, explore using exact match (=). Only use LIKE for partial matching.",
+      "when_to_apply": [
+        "Question mentions specific value (e.g., 'Lunch Provision 2', 'Los Angeles')",
+        "Evidence specifies exact value",
+        "After exploration, you found the exact value in database"
+      ],
+      "how_to_apply": [
+        "1. Check if question provides exact value",
+        "2. If yes, use = with that exact value",
+        "3. If value is unknown, explore first to find exact value",
+        "4. After exploration, use = with the found value, not LIKE pattern"
+      ],
+      "example": {
+        "case_id": "bird_0076",
+        "question": "school with Lunch Provision 2",
+        "correct": "WHERE \"NSLP Provision Status\" = 'Lunch Provision 2'",
+        "wrong": "WHERE \"NSLP Provision Status\" LIKE '%Provision%'",
+        "why_wrong": "Question provides exact value 'Lunch Provision 2'. Using LIKE loses specificity and could match 'Lunch Provision 1', 'Lunch Provision 3', etc."
+      },
+      "related_tips": [
+        "TIP006",
+        "TIP007",
+        "TIP023"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "string_match",
+        "exact_match",
+        "equality",
+        "specific_value"
+      ]
+    },
+    {
+      "id": "TIP006",
+      "category": "string_matching",
+      "priority": "high",
+      "title": "Use LIKE Only for Partial Matching",
+      "description": "Explore using LIKE only when question explicitly asks for partial matching (contains, starts with, ends with).",
+      "when_to_apply": [
+        "Question says 'mentioning', 'containing', 'with keyword'",
+        "Question says 'starting with', 'ending with'",
+        "Question asks for pattern matching"
+      ],
+      "how_to_apply": [
+        "1. Identify if question asks for partial match",
+        "2. Choose appropriate LIKE pattern:",
+        "   - Contains: LIKE '%keyword%'",
+        "   - Starts with: LIKE 'prefix%'",
+        "   - Ends with: LIKE '%suffix'",
+        "3. Do NOT use LIKE when exact value is known"
+      ],
+      "example": {
+        "correct_cases": [
+          "Question: 'articles mentioning education' → LIKE '%education%'",
+          "Question: 'names starting with A' → LIKE 'A%'",
+          "Question: 'titles with book' → LIKE '%book%'"
+        ],
+        "wrong_case": {
+          "question": "schools in Los Angeles",
+          "wrong": "LIKE '%Los Angeles%'",
+          "correct": "= 'Los Angeles'",
+          "why_wrong": "Question provides exact location, not asking for partial match"
+        }
+      },
+      "related_tips": [
+        "TIP005",
+        "TIP007",
+        "TIP025"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "string_match",
+        "like",
+        "partial_match",
+        "pattern"
+      ]
+    },
+    {
+      "id": "TIP007",
+      "category": "string_matching",
+      "priority": "medium",
+      "title": "After Exploration, Use Exact Values Not Patterns",
+      "description": "After exploring to find possible values, explore using exact match (=) with the found value to explore, not LIKE pattern.",
+      "when_to_apply": [
+        "You used [EXPLORE] to check distinct values",
+        "You found the exact value in exploration results",
+        "You need to filter by that value"
+      ],
+      "how_to_apply": [
+        "1. Use [EXPLORE] to find distinct values",
+        "2. Identify the exact value that matches question requirement",
+        "3. Use = with that exact value in SQL",
+        "4. Do NOT use LIKE pattern based on exploration"
+      ],
+      "example": {
+        "exploration": "SELECT DISTINCT \"NSLP Provision Status\" FROM frpm LIMIT 10;",
+        "result": "Returns: 'Lunch Provision 2', 'Lunch Provision 3', etc.",
+        "correct": "WHERE \"NSLP Provision Status\" = 'Lunch Provision 2'",
+        "wrong": "WHERE \"NSLP Provision Status\" LIKE '%Provision 2%'",
+        "why_wrong": "After exploration, you know the exact value. Use exact match for precision."
+      },
+      "related_tips": [
+        "TIP005",
+        "TIP006",
+        "TIP019"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "exploration",
+        "exact_value",
+        "after_explore"
+      ]
+    },
+    {
+      "id": "TIP008",
+      "category": "output_columns",
+      "priority": "critical",
+      "title": "Exclude ORDER BY Columns from SELECT Unless Requested",
+      "description": "Explore excluding columns used only for sorting (ORDER BY) from SELECT unless explicitly requested in question.",
+      "when_to_apply": [
+        "Question asks for 'highest', 'lowest', 'top N', 'bottom N', 'maximum', 'minimum', 'best', 'worst'",
+        "Question structure: 'what is X with highest/lowest Y' - return X, not Y",
+        "Need ORDER BY + LIMIT but sorting column is NOT in question's output request"
+      ],
+      "how_to_apply": [
+        "1. Identify what question asks to return (e.g., 'List accounts')",
+        "2. Identify what is used for sorting (e.g., 'with lowest amount')",
+        "3. SELECT only the requested columns",
+        "4. Use ORDER BY with sorting column but don't include it in SELECT"
+      ],
+      "example": {
+        "case_id": "bird_0098",
+        "question": "List accounts with lowest amount",
+        "correct": "SELECT account_id FROM loan ORDER BY amount ASC LIMIT 1",
+        "wrong": "SELECT account_id, amount FROM loan ORDER BY amount ASC LIMIT 1",
+        "why_wrong": "Question asks to 'list accounts', not 'list accounts and amounts'. The amount is only for sorting."
+      },
+      "related_tips": [
+        "TIP009",
+        "TIP010",
+        "TIP030"
+      ],
+      "when_NOT_to_apply": [
+        "Question explicitly asks for the sorting column (e.g., 'name and score of top student')",
+        "No superlative/extreme value query",
+        "Question asks for all values, not just extreme"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "output",
+        "select",
+        "order_by",
+        "exclude_sort_column"
+      ]
+    },
+    {
+      "id": "TIP009",
+      "category": "output_columns",
+      "priority": "critical",
+      "title": "Return Columns in Exact Order Mentioned in Question",
+      "description": "Explore returning output columns in the EXACT order they appear in the question. First mentioned → first in SELECT.",
+      "when_to_apply": [
+        "Question asks for 2+ pieces of information with explicit order (e.g., 'name and phone', 'city, state and zip')",
+        "Question uses conjunctions like 'and', 'as well as' to list multiple items",
+        "Order matters for user's understanding"
+      ],
+      "how_to_apply": [
+        "1. Parse question to identify requested information in order",
+        "2. Map each piece to corresponding column",
+        "3. SELECT columns in the same order as mentioned",
+        "4. Do NOT reorder based on importance or alphabetically"
+      ],
+      "example": {
+        "question": "Name schools in Riverside, what is the funding type",
+        "correct": "SELECT school_name, funding_type FROM ...",
+        "wrong": "SELECT funding_type, school_name FROM ...",
+        "why_wrong": "Question mentions school name first, then funding type. Order matters for output format."
+      },
+      "related_tips": [
+        "TIP008",
+        "TIP010",
+        "TIP011"
+      ],
+      "when_NOT_to_apply": [
+        "Question asks for only one piece of information",
+        "Question asks 'what is X' without specifying multiple columns",
+        "Order doesn't matter (e.g., just listing attributes)"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "output",
+        "select",
+        "column_order",
+        "exact_order"
+      ]
+    },
+    {
+      "id": "TIP010",
+      "category": "output_columns",
+      "priority": "critical",
+      "title": "Exclude Filter Columns from SELECT Unless Requested",
+      "description": "Explore excluding columns used only for filtering (WHERE) from SELECT unless explicitly requested.",
+      "when_to_apply": [
+        "Question structure: 'what/list X where/with Y' - X is output, Y is filter",
+        "Question asks 'schools where enrollment > 1000' - return school info, NOT enrollment",
+        "Filter condition is clearly NOT part of requested output"
+      ],
+      "how_to_apply": [
+        "1. Identify what question asks to return (e.g., 'What is the city')",
+        "2. Identify what is used for filtering (e.g., 'where score > 500')",
+        "3. SELECT only the requested columns",
+        "4. Use WHERE with filter column but don't include it in SELECT"
+      ],
+      "example": {
+        "question": "What is the city of schools with score > 500",
+        "correct": "SELECT city FROM schools WHERE score > 500",
+        "wrong": "SELECT city, score FROM schools WHERE score > 500",
+        "why_wrong": "Question asks 'what is the city', not 'what is the city and score'. Score is only for filtering."
+      },
+      "related_tips": [
+        "TIP008",
+        "TIP009",
+        "TIP023"
+      ],
+      "when_NOT_to_apply": [
+        "Question explicitly requests the filter column (e.g., 'name and enrollment where enrollment > 1000')",
+        "No WHERE clause needed",
+        "Filter column is part of requested information"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "output",
+        "select",
+        "filter",
+        "exclude_filter_column"
+      ]
+    },
+    {
+      "id": "TIP011",
+      "category": "output_columns",
+      "priority": "high",
+      "title": "For 'How Many' Questions, Return COUNT Only",
+      "description": "When question asks 'how many', explore returning only COUNT, not individual records or other columns.",
+      "when_to_apply": [
+        "Question asks 'how many' or 'count'",
+        "Question only needs COUNT, no other columns",
+        "Question structure: 'how many X where Y'"
+      ],
+      "how_to_apply": [
+        "1. Identify that question asks for count",
+        "2. Use COUNT(*) or COUNT(column)",
+        "3. Do NOT include other columns in SELECT",
+        "4. Do NOT use GROUP BY unless question asks for count per category"
+      ],
+      "example": {
+        "question": "How many schools have over 500 students",
+        "correct": "SELECT COUNT(*) FROM schools WHERE students > 500",
+        "wrong": "SELECT school_name, COUNT(*) FROM schools WHERE students > 500",
+        "why_wrong": "Question asks 'how many', not 'which schools'. Return count only."
+      },
+      "related_tips": [
+        "TIP026",
+        "TIP028"
+      ],
+      "when_NOT_to_apply": [
+        "Question asks for specific information beyond count",
+        "Question asks 'how many' AND 'what are they'"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "output",
+        "select",
+        "count",
+        "how_many",
+        "aggregation"
+      ]
+    },
+    {
+      "id": "TIP012",
+      "category": "table_selection",
+      "priority": "high",
+      "title": "Check If Single Table Contains All Required Information",
+      "description": "Before exploring JOIN, verify if all required information exists in a single table. Prefer exploring single-table solutions.",
+      "when_to_apply": [
+        "Logical plan suggests joining multiple tables",
+        "Question mentions concepts that might span tables",
+        "Before deciding to JOIN, check if single table suffices"
+      ],
+      "how_to_apply": [
+        "1. List all information needed to answer question",
+        "2. Use [EXPLORE] to check if one table has all needed columns",
+        "3. If yes, use single table without JOIN",
+        "4. Only JOIN if information truly spans multiple tables"
+      ],
+      "example": {
+        "case_id": "bird_0021",
+        "question": "Count schools in LA with >500 free meals and <700 FRPM for K-12",
+        "schema": "frpm table has: County Name, Free Meal Count (K-12), FRPM Count (K-12)",
+        "correct": "SELECT COUNT(CDSCode) FROM frpm WHERE \"County Name\" = 'Los Angeles' AND ...",
+        "wrong": "SELECT COUNT(DISTINCT schools.CDSCode) FROM schools JOIN frpm ON ... WHERE ...",
+        "why_wrong": "All needed information (county, free meals, FRPM) is in frpm table. No need to JOIN schools."
+      },
+      "related_tips": [
+        "TIP013",
+        "TIP014",
+        "TIP020"
+      ],
+      "when_NOT_to_apply": [
+        "Question clearly needs information from multiple tables",
+        "Single table obviously insufficient"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "table",
+        "single_table",
+        "avoid_join"
+      ]
+    },
+    {
+      "id": "TIP013",
+      "category": "table_selection",
+      "priority": "high",
+      "title": "JOIN Only When Information Spans Multiple Tables",
+      "description": "Explore using JOIN only when question explicitly needs information from multiple entities that exist in different tables.",
+      "when_to_apply": [
+        "Question asks for information from clearly different entities",
+        "After checking, information is confirmed to be in different tables",
+        "Single table cannot answer the question"
+      ],
+      "how_to_apply": [
+        "1. Identify distinct entities in question (e.g., schools and scores)",
+        "2. Check which tables contain each entity's information",
+        "3. If different tables, plan JOIN with appropriate keys",
+        "4. Verify join keys exist and have matching values"
+      ],
+      "example": {
+        "question": "Name schools and their funding type where math score > 400",
+        "schema": "satscores has: school names, math scores; frpm has: funding type",
+        "correct": "SELECT satscores.sname, frpm.\"Charter Funding Type\" FROM satscores JOIN frpm ON satscores.cds = frpm.CDSCode WHERE satscores.AvgScrMath > 400",
+        "why_correct": "School names in satscores, funding type in frpm. Need JOIN to combine."
+      },
+      "related_tips": [
+        "TIP012",
+        "TIP020",
+        "TIP021"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "table",
+        "join",
+        "multiple_tables"
+      ]
+    },
+    {
+      "id": "TIP014",
+      "category": "table_selection",
+      "priority": "medium",
+      "title": "Avoid Over-Engineering with Unnecessary Complexity",
+      "description": "Explore avoiding JOINs, subqueries, or conditions that aren't needed. Use the simplest solution that answers the question.",
+      "when_to_apply": [
+        "You're considering adding extra verification steps",
+        "You're thinking of joining 'just in case'",
+        "Solution is becoming complex"
+      ],
+      "how_to_apply": [
+        "1. Review your planned SQL",
+        "2. Ask: Is each JOIN necessary?",
+        "3. Ask: Is each condition explicitly required by question?",
+        "4. Remove anything not directly needed",
+        "5. Prefer simple over clever"
+      ],
+      "example": {
+        "question": "Schools with enrollment > 1000",
+        "correct": "SELECT School FROM schools WHERE Enrollment > 1000",
+        "wrong": "SELECT s.School FROM schools s JOIN frpm f ON s.CDSCode = f.CDSCode WHERE s.Enrollment > 1000 OR f.\"Enrollment (K-12)\" > 1000",
+        "why_wrong": "Unnecessary complexity. One table and one condition is sufficient."
+      },
+      "related_tips": [
+        "TIP012",
+        "TIP033"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "simplicity",
+        "avoid_complexity",
+        "over_engineering"
+      ]
+    },
+    {
+      "id": "TIP015",
+      "category": "column_interpretation",
+      "priority": "high",
+      "title": "Parenthetical Text in Column Names Is NOT a Filter Condition",
+      "description": "When exploring, note that text in parentheses within column names (e.g., '(K-12)', '(Ages 5-17)') is part of the column name, NOT a filter condition.",
+      "when_to_apply": [
+        "Column name contains parentheses",
+        "Question mentions text that appears in column name parentheses",
+        "You're tempted to add filter based on parenthetical text"
+      ],
+      "how_to_apply": [
+        "1. Identify column names with parentheses",
+        "2. Recognize parenthetical text as column name component",
+        "3. Use full column name including parentheses",
+        "4. Do NOT add separate filter condition for parenthetical text"
+      ],
+      "example": {
+        "case_id": "bird_0021",
+        "question": "...free meals for K-12",
+        "schema": "Column named 'Free Meal Count (K-12)'",
+        "correct": "\"Free Meal Count (K-12)\" > 500",
+        "wrong": "\"Free Meal Count\" > 500 AND GSserved = 'K-12'",
+        "why_wrong": "'(K-12)' is part of column name, not a grade level filter. Adding GSserved condition is unnecessary."
+      },
+      "related_tips": [
+        "TIP016",
+        "TIP017"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "column_name",
+        "parentheses",
+        "not_filter",
+        "column_interpretation"
+      ]
+    },
+    {
+      "id": "TIP016",
+      "category": "column_interpretation",
+      "priority": "medium",
+      "title": "Distinguish Column Name Context from Filter Conditions",
+      "description": "When exploring, note that parenthetical text in column names provides context about the data, not additional filter conditions to apply.",
+      "when_to_apply": [
+        "Column name has descriptive parentheses (e.g., '(4.0 scale)', '(in thousands)')",
+        "You're considering adding filter based on this context",
+        "Question mentions the contextual information"
+      ],
+      "how_to_apply": [
+        "1. Identify contextual information in column name",
+        "2. Understand it describes the data format/unit/scope",
+        "3. Use the column as-is without additional filters",
+        "4. Only add filters if question explicitly requires them"
+      ],
+      "example": {
+        "question": "High school students with GPA > 3.5",
+        "schema": "Column: 'GPA (4.0 scale)', Column: 'School Level'",
+        "correct": "WHERE \"GPA (4.0 scale)\" > 3.5 AND \"School Level\" = 'High School'",
+        "wrong": "WHERE GPA > 3.5 AND \"School Level\" = 'High School' AND scale = 4.0",
+        "why_wrong": "'(4.0 scale)' is context about GPA format, not a separate filter condition."
+      },
+      "related_tips": [
+        "TIP015",
+        "TIP023"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "numeric",
+        "comparison",
+        "greater_than",
+        "more_than"
+      ]
+    },
+    {
+      "id": "TIP017",
+      "category": "schema_grounding",
+      "priority": "high",
+      "title": "Use Direct Name Matching for Column Identification",
+      "description": "When exploring, if logical plan mentions a concept, look for columns with similar names first (case-insensitive, with variations).",
+      "when_to_apply": [
+        "Logical plan mentions a concept (e.g., 'county', 'phone')",
+        "You need to find corresponding column in schema",
+        "Starting schema exploration"
+      ],
+      "how_to_apply": [
+        "1. Identify concept from logical plan",
+        "2. Generate name variations: County, County_Name, CountyCode, county_name",
+        "3. Use [EXPLORE] to check if these columns exist",
+        "4. Verify column content matches expected concept"
+      ],
+      "example": {
+        "concept": "phone number",
+        "variations": [
+          "Phone",
+          "PhoneNumber",
+          "ContactPhone",
+          "Telephone",
+          "phone_number"
+        ],
+        "exploration": "SELECT Phone FROM table LIMIT 1; -- check if exists",
+        "verification": "SELECT DISTINCT Phone FROM table LIMIT 5; -- verify content"
+      },
+      "related_tips": [
+        "TIP018",
+        "TIP019"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "column_name",
+        "interpretation",
+        "semantic_meaning"
+      ]
+    },
+    {
+      "id": "TIP018",
+      "category": "schema_grounding",
+      "priority": "medium",
+      "title": "Use Semantic Matching When Direct Names Don't Match",
+      "description": "When exploring, if direct name matching fails, think about what the concept means and look for semantically related columns.",
+      "when_to_apply": [
+        "Direct name matching found no columns",
+        "Concept is abstract (e.g., 'location', 'identifier')",
+        "Need to find column by meaning not name"
+      ],
+      "how_to_apply": [
+        "1. Understand what the concept represents",
+        "2. Think of related concepts:",
+        "   - 'location' → City, Region, Address, ZipCode",
+        "   - 'identifier' → ID, Code, Number, Key",
+        "   - 'status' → Status, State, Condition, Flag",
+        "3. Explore these semantic alternatives",
+        "4. Verify content matches intended concept"
+      ],
+      "example": {
+        "concept": "location",
+        "semantic_matches": [
+          "City",
+          "Region",
+          "Address",
+          "ZipCode",
+          "County"
+        ],
+        "approach": "Explore each to see which matches question context"
+      },
+      "related_tips": [
+        "TIP017",
+        "TIP019",
+        "TIP004"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "join",
+        "foreign_key",
+        "primary_key",
+        "relationship"
+      ]
+    },
+    {
+      "id": "TIP019",
+      "category": "schema_grounding",
+      "priority": "critical",
+      "title": "Always Verify Column Existence Before Using",
+      "description": "When exploring, never assume a column exists. Always verify through exploration before using.",
+      "when_to_apply": [
+        "Always select this tip - it's a general reminder to verify columns",
+        "Especially important when question uses ambiguous terms",
+        "Critical for any SQL generation task"
+      ],
+      "how_to_apply": [
+        "1. Identify column name you plan to use",
+        "2. Use [EXPLORE]: SELECT column_name FROM table LIMIT 1;",
+        "3. If error, column doesn't exist - try alternatives",
+        "4. If success, optionally check distinct values to verify content",
+        "5. Only then use column in final SQL"
+      ],
+      "example": {
+        "step1": "[EXPLORE] SELECT County FROM schools LIMIT 1;",
+        "step2": "[EXPLORE] SELECT DISTINCT County FROM schools LIMIT 10; -- verify content",
+        "step3": "[SQL] ... WHERE County = 'Los Angeles'"
+      },
+      "related_tips": [
+        "TIP017",
+        "TIP018",
+        "TIP007"
+      ],
+      "when_NOT_to_apply": [
+        "Never exclude this tip - it's always relevant"
+      ],
+      "selection_type": "universal",
+      "keywords": [
+        "join",
+        "multiple_joins",
+        "chain_joins"
+      ]
+    },
+    {
+      "id": "TIP020",
+      "category": "join_strategy",
+      "priority": "high",
+      "title": "Identify Join Keys from Schema Relationships",
+      "description": "When exploring joins, look for foreign key relationships in schema. Common patterns: ID columns, Code columns, Name columns.",
+      "when_to_apply": [
+        "You determined JOIN is needed",
+        "Need to find how tables relate",
+        "Looking for join keys"
+      ],
+      "how_to_apply": [
+        "1. Check schema for foreign key hints",
+        "2. Look for common patterns:",
+        "   - ID columns: CustomerID, OrderID, ProductID",
+        "   - Code columns: CDSCode, SchoolCode, DistrictCode",
+        "   - Name columns: Name, Title (less reliable)",
+        "3. Verify both tables have the join key",
+        "4. Check if values match between tables"
+      ],
+      "example": {
+        "tables": "schools and frpm",
+        "join_key": "CDSCode (exists in both tables)",
+        "verification": "[EXPLORE] SELECT DISTINCT CDSCode FROM schools LIMIT 5; [EXPLORE] SELECT DISTINCT CDSCode FROM frpm LIMIT 5;"
+      },
+      "related_tips": [
+        "TIP021",
+        "TIP022",
+        "TIP013"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "filter",
+        "where",
+        "condition",
+        "multiple_conditions"
+      ]
+    },
+    {
+      "id": "TIP021",
+      "category": "join_strategy",
+      "priority": "high",
+      "title": "Verify Join Keys Have Matching Values",
+      "description": "When exploring joins, verify that join keys have matching values in both tables and check for NULLs.",
+      "when_to_apply": [
+        "Logical plan includes JOIN operation",
+        "You identified join keys",
+        "Before writing JOIN in SQL"
+      ],
+      "how_to_apply": [
+        "1. Explore distinct values in join key from both tables",
+        "2. Verify some values appear in both",
+        "3. Check for NULL values: SELECT COUNT(*) FROM table WHERE join_key IS NULL;",
+        "4. If many NULLs, consider if LEFT JOIN is needed"
+      ],
+      "example": {
+        "check_table_a": "SELECT DISTINCT join_key FROM table_a LIMIT 10;",
+        "check_table_b": "SELECT DISTINCT join_key FROM table_b LIMIT 10;",
+        "check_nulls": "SELECT COUNT(*) FROM table_a WHERE join_key IS NULL;"
+      },
+      "related_tips": [
+        "TIP020",
+        "TIP022",
+        "TIP039"
+      ],
+      "when_NOT_to_apply": [
+        "No JOIN needed",
+        "Single table query"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "filter",
+        "where",
+        "and",
+        "multiple_filters"
+      ]
+    },
+    {
+      "id": "TIP022",
+      "category": "join_strategy",
+      "priority": "medium",
+      "title": "Choose Appropriate Join Type",
+      "description": "When exploring joins, select join type based on whether you need all records from one/both tables or only matching records.",
+      "when_to_apply": [
+        "Implementing JOIN",
+        "Deciding between INNER, LEFT, RIGHT, FULL JOIN",
+        "Question implies keeping all records from one side"
+      ],
+      "how_to_apply": [
+        "1. INNER JOIN: Need only matching records from both tables (most common)",
+        "2. LEFT JOIN: Need all records from left table, even if no match in right",
+        "3. RIGHT JOIN: Need all records from right table, even if no match in left",
+        "4. FULL OUTER JOIN: Need all records from both (rare in SQLite)",
+        "5. Default to INNER JOIN unless question implies otherwise"
+      ],
+      "example": {
+        "inner_join": "Schools with scores (only schools that have scores)",
+        "left_join": "All schools and their scores if available (includes schools without scores)"
+      },
+      "related_tips": [
+        "TIP020",
+        "TIP021"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "filter",
+        "where",
+        "or",
+        "alternative_conditions"
+      ]
+    },
+    {
+      "id": "TIP023",
+      "category": "filter_implementation",
+      "priority": "high",
+      "title": "Use Exact Value Filters When Value Is Specified",
+      "description": "When question explicitly mentions a value, explore using exact match (=) for filtering.",
+      "when_to_apply": [
+        "Question mentions specific value (e.g., 'Alameda County', 'Charter School')",
+        "Evidence specifies exact value",
+        "Value is unambiguous"
+      ],
+      "how_to_apply": [
+        "1. Extract exact value from question",
+        "2. Use WHERE column = 'exact_value'",
+        "3. Preserve exact spelling, capitalization, spacing",
+        "4. Do NOT use LIKE unless partial matching is needed"
+      ],
+      "example": {
+        "question": "Schools in Alameda County",
+        "correct": "WHERE County = 'Alameda'",
+        "also_correct": "WHERE County = 'Alameda County' -- if that's the exact value",
+        "wrong": "WHERE County LIKE '%Alameda%'"
+      },
+      "related_tips": [
+        "TIP005",
+        "TIP024",
+        "TIP025"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "filter",
+        "case_sensitive",
+        "exact_case"
+      ]
+    },
+    {
+      "id": "TIP024",
+      "category": "filter_implementation",
+      "priority": "high",
+      "title": "Use Correct Numeric Comparison Operators",
+      "description": "When exploring filters, translate question's numeric comparisons to correct operators. Pay attention to inclusive vs exclusive. BETWEEN is inclusive on both ends.",
+      "when_to_apply": [
+        "Question specifies numeric comparison (e.g., 'more than 500', 'less than 700', 'between X and Y')",
+        "Need to use >, <, >=, <=, BETWEEN operators",
+        "Numeric filtering is explicit in question"
+      ],
+      "how_to_apply": [
+        "1. Parse question for comparison phrase",
+        "2. Map to operator:",
+        "   - 'over', 'more than', 'greater than' → >",
+        "   - 'at least', 'or more', 'minimum' → >=",
+        "   - 'under', 'less than', 'below' → <",
+        "   - 'at most', 'or less', 'maximum' → <=",
+        "   - 'between X and Y' → BETWEEN X AND Y (inclusive on both ends)",
+        "3. Use exact operator in WHERE clause",
+        "4. BETWEEN X AND Y includes both X and Y (equivalent to >= X AND <= Y)"
+      ],
+      "example": {
+        "mappings": {
+          "more than 500": "> 500",
+          "at least 500": ">= 500",
+          "less than 700": "< 700",
+          "at most 700": "<= 700",
+          "between 6.0 and 8.5": "BETWEEN 6.0 AND 8.5 (includes 6.0 and 8.5)"
+        }
+      },
+      "related_tips": [
+        "TIP023",
+        "TIP025"
+      ],
+      "when_NOT_to_apply": [
+        "No numeric comparison needed",
+        "Using = for exact match",
+        "Comparison is not numeric"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "numeric",
+        "comparison",
+        "greater_than",
+        "less_than",
+        "between",
+        "range"
+      ]
+    },
+    {
+      "id": "TIP025",
+      "category": "filter_implementation",
+      "priority": "medium",
+      "title": "Choose String Matching Strategy Based on Question Intent",
+      "description": "Explore choosing between exact match (=), prefix match (LIKE 'X%'), suffix match (LIKE '%X'), or contains (LIKE '%X%') based on question.",
+      "when_to_apply": [
+        "Filtering by string column",
+        "Question implies partial matching",
+        "Need to decide on LIKE pattern"
+      ],
+      "how_to_apply": [
+        "1. Exact match: Question provides complete value → =",
+        "2. Contains: Question says 'mentioning', 'containing' → LIKE '%X%'",
+        "3. Starts with: Question says 'starting with', 'beginning with' → LIKE 'X%'",
+        "4. Ends with: Question says 'ending with' → LIKE '%X'",
+        "5. Default to exact match when in doubt"
+      ],
+      "example": {
+        "exact": "WHERE status = 'Active'",
+        "contains": "WHERE description LIKE '%education%'",
+        "starts": "WHERE name LIKE 'A%'",
+        "ends": "WHERE email LIKE '%@gmail.com'"
+      },
+      "related_tips": [
+        "TIP005",
+        "TIP006",
+        "TIP023"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "aggregation",
+        "having",
+        "filter_after_group"
+      ]
+    },
+    {
+      "id": "TIP026",
+      "category": "aggregation",
+      "priority": "medium",
+      "title": "Choose Correct Aggregation Function",
+      "description": "When exploring aggregations, select appropriate function based on what question asks: COUNT, SUM, AVG, MAX, MIN.",
+      "when_to_apply": [
+        "Question asks for count, total, average, maximum, minimum",
+        "Need to aggregate data",
+        "Implementing aggregation step from logical plan"
+      ],
+      "how_to_apply": [
+        "1. Identify what question asks:",
+        "   - 'how many' → COUNT(*) or COUNT(column)",
+        "   - 'total', 'sum' → SUM(column)",
+        "   - 'average', 'mean' → AVG(column) or SUM/COUNT if evidence specifies",
+        "   - 'highest', 'maximum' → MAX(column)",
+        "   - 'lowest', 'minimum' → MIN(column)",
+        "2. Use appropriate function",
+        "3. Consider NULL handling"
+      ],
+      "example": {
+        "count_all": "COUNT(*) -- all rows",
+        "count_non_null": "COUNT(column) -- non-NULL values",
+        "count_distinct": "COUNT(DISTINCT column) -- unique values"
+      },
+      "related_tips": [
+        "TIP027",
+        "TIP028",
+        "TIP002"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "aggregation",
+        "count_distinct",
+        "unique_count"
+      ]
+    },
+    {
+      "id": "TIP027",
+      "category": "aggregation",
+      "priority": "high",
+      "title": "Protect Division Operations Against Zero and Use CAST",
+      "description": "When exploring calculations with ratios or percentages, protect against division by zero and ensure float division with CAST.",
+      "when_to_apply": [
+        "Evidence contains division formula (e.g., 'X = A / B', 'average = sum / count')",
+        "Question asks for ratio, percentage, or manually calculated average",
+        "Logical plan includes division operation"
+      ],
+      "how_to_apply": [
+        "1. Use CAST(numerator AS REAL) to ensure float division",
+        "2. Protect against zero:",
+        "   - Option 1: CASE WHEN denominator > 0 THEN ... ELSE NULL END",
+        "   - Option 2: CAST(numerator AS REAL) / NULLIF(denominator, 0)",
+        "3. Consider if NULL result is acceptable or needs default value"
+      ],
+      "example": {
+        "basic": "CAST(count_a AS REAL) / count_b",
+        "protected": "CAST(count_a AS REAL) / NULLIF(count_b, 0)",
+        "with_default": "CASE WHEN count_b > 0 THEN CAST(count_a AS REAL) / count_b ELSE 0 END"
+      },
+      "related_tips": [
+        "TIP002",
+        "TIP026",
+        "TIP040"
+      ],
+      "when_NOT_to_apply": [
+        "Using built-in AVG(), no manual division",
+        "No division operation needed"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "aggregation",
+        "sum",
+        "total"
+      ]
+    },
+    {
+      "id": "TIP028",
+      "category": "aggregation",
+      "priority": "high",
+      "title": "Use GROUP BY When Aggregating Per Category",
+      "description": "When exploring aggregations and question asks 'per category', 'by group', 'for each', use GROUP BY with the category column.",
+      "when_to_apply": [
+        "Question says 'per', 'by', 'for each', 'in each'",
+        "Need aggregation at category level not overall",
+        "Logical plan mentions grouping"
+      ],
+      "how_to_apply": [
+        "1. Identify grouping column(s) from question",
+        "2. SELECT grouping_column, AGG_FUNCTION(value_column)",
+        "3. Add GROUP BY grouping_column",
+        "4. If filtering groups, use HAVING not WHERE"
+      ],
+      "example": {
+        "question": "Average score per school",
+        "sql": "SELECT school, AVG(score) FROM students GROUP BY school"
+      },
+      "related_tips": [
+        "TIP026",
+        "TIP029"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "aggregation",
+        "avg",
+        "average",
+        "mean"
+      ]
+    },
+    {
+      "id": "TIP029",
+      "category": "aggregation",
+      "priority": "medium",
+      "title": "Use HAVING to Filter After Aggregation",
+      "description": "When exploring aggregations, use HAVING clause to filter groups after aggregation. Use WHERE to filter rows before aggregation.",
+      "when_to_apply": [
+        "Need to filter based on aggregated value (e.g., 'schools with average > 80')",
+        "Using GROUP BY",
+        "Condition involves aggregate function"
+      ],
+      "how_to_apply": [
+        "1. WHERE filters individual rows before grouping",
+        "2. HAVING filters groups after aggregation",
+        "3. If condition uses aggregate function (COUNT, SUM, AVG, etc.) → HAVING",
+        "4. If condition uses regular column → WHERE"
+      ],
+      "example": {
+        "where_example": "WHERE score > 80 -- filter individual scores",
+        "having_example": "HAVING AVG(score) > 80 -- filter groups by average"
+      },
+      "related_tips": [
+        "TIP028",
+        "TIP026"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "aggregation",
+        "max",
+        "maximum",
+        "highest"
+      ]
+    },
+    {
+      "id": "TIP030",
+      "category": "sorting_limiting",
+      "priority": "high",
+      "title": "Implement ORDER BY Based on Question Keywords",
+      "description": "When exploring sorting, translate question's keywords to correct ORDER BY direction: ASC for lowest/first, DESC for highest/last.",
+      "when_to_apply": [
+        "Question mentions 'highest', 'lowest', 'top', 'bottom', 'first', 'last'",
+        "Need to sort results",
+        "Implementing sorting from logical plan"
+      ],
+      "how_to_apply": [
+        "1. Identify sorting keyword in question",
+        "2. Map to ORDER BY:",
+        "   - 'highest', 'maximum', 'top', 'largest' → ORDER BY column DESC",
+        "   - 'lowest', 'minimum', 'bottom', 'smallest' → ORDER BY column ASC",
+        "   - 'alphabetically', 'first' → ORDER BY column ASC",
+        "3. Add LIMIT if question specifies number"
+      ],
+      "example": {
+        "highest": "ORDER BY score DESC",
+        "lowest": "ORDER BY amount ASC",
+        "alphabetically": "ORDER BY name ASC"
+      },
+      "related_tips": [
+        "TIP031",
+        "TIP032",
+        "TIP008"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "aggregation",
+        "min",
+        "minimum",
+        "lowest"
+      ]
+    },
+    {
+      "id": "TIP031",
+      "category": "sorting_limiting",
+      "priority": "high",
+      "title": "Use LIMIT for Top N or Single Extreme Value",
+      "description": "When exploring and question asks for 'top N', 'first N', or single extreme value, use LIMIT with ORDER BY.",
+      "when_to_apply": [
+        "Question says 'top 5', 'first 10', 'bottom 3'",
+        "Question asks for 'highest', 'lowest' (singular)",
+        "Need to limit number of results"
+      ],
+      "how_to_apply": [
+        "1. Identify if question specifies number",
+        "2. Use ORDER BY to sort correctly",
+        "3. Add LIMIT N where N is the number",
+        "4. For single extreme value, use LIMIT 1"
+      ],
+      "example": {
+        "top_5": "ORDER BY score DESC LIMIT 5",
+        "lowest_value": "ORDER BY amount ASC LIMIT 1",
+        "first_10": "ORDER BY date ASC LIMIT 10"
+      },
+      "related_tips": [
+        "TIP030",
+        "TIP032",
+        "TIP008"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "sort",
+        "order_by",
+        "ascending",
+        "descending"
+      ]
+    },
+    {
+      "id": "TIP032",
+      "category": "sorting_limiting",
+      "priority": "high",
+      "title": "Filter Out NULLs When Finding Extreme Values",
+      "description": "When exploring extreme values with ORDER BY, add WHERE column IS NOT NULL to avoid NULL results.",
+      "when_to_apply": [
+        "Finding highest/lowest value",
+        "Using ORDER BY with LIMIT 1",
+        "Column might contain NULL values"
+      ],
+      "how_to_apply": [
+        "1. Before ORDER BY, add WHERE column IS NOT NULL",
+        "2. This ensures you get actual extreme value, not NULL",
+        "3. Then apply ORDER BY and LIMIT"
+      ],
+      "example": {
+        "without_filter": "SELECT name FROM students ORDER BY score DESC LIMIT 1; -- might return NULL",
+        "with_filter": "SELECT name FROM students WHERE score IS NOT NULL ORDER BY score DESC LIMIT 1; -- guaranteed non-NULL"
+      },
+      "related_tips": [
+        "TIP030",
+        "TIP031",
+        "TIP039"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "sort",
+        "order_by",
+        "multiple_columns"
+      ]
+    },
+    {
+      "id": "TIP033",
+      "category": "multi_step_logic",
+      "priority": "medium",
+      "title": "Use Subquery for Dependent Steps",
+      "description": "When exploring and logical plan has dependent steps (step 2 needs result from step 1), explore using subquery or CTE.",
+      "when_to_apply": [
+        "Logical plan has multiple steps",
+        "Later step depends on earlier step's result",
+        "Question has nested logic (e.g., 'schools in the county with highest population')"
+      ],
+      "how_to_apply": [
+        "1. Identify dependent steps in logical plan",
+        "2. Inner query: Calculate what outer query needs",
+        "3. Outer query: Use inner query result",
+        "4. For complex logic, consider CTE for readability"
+      ],
+      "example": {
+        "question": "Schools in the county with highest population",
+        "sql": "SELECT school_name FROM schools WHERE county = (SELECT county FROM counties ORDER BY population DESC LIMIT 1)"
+      },
+      "related_tips": [
+        "TIP034",
+        "TIP014"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "limit",
+        "top_n",
+        "first_n",
+        "restrict_rows"
+      ]
+    },
+    {
+      "id": "TIP034",
+      "category": "multi_step_logic",
+      "priority": "low",
+      "title": "Use CTE for Complex Multi-Step Logic",
+      "description": "When exploring complex queries with multiple dependent steps, explore using CTE (WITH clause) for clarity.",
+      "when_to_apply": [
+        "Query has 3+ dependent steps",
+        "Nested subqueries become hard to read",
+        "Need to reference intermediate result multiple times"
+      ],
+      "how_to_apply": [
+        "1. Break down logic into named steps",
+        "2. Use WITH step1 AS (...), step2 AS (...)",
+        "3. Each CTE can reference previous CTEs",
+        "4. Final SELECT uses the CTEs"
+      ],
+      "example": {
+        "cte": "WITH step1 AS (SELECT ...), step2 AS (SELECT ... FROM step1) SELECT ... FROM step2"
+      },
+      "related_tips": [
+        "TIP033"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "subquery",
+        "nested_query",
+        "multi_step"
+      ]
+    },
+    {
+      "id": "TIP035",
+      "category": "sql_syntax",
+      "priority": "high",
+      "title": "Use Double Quotes for Identifiers with Spaces or Special Characters",
+      "description": "When exploring, note that column/table names with spaces, special characters, or reserved words must be quoted with double quotes.",
+      "when_to_apply": [
+        "Column name has spaces (e.g., 'County Name')",
+        "Column name has special characters (e.g., 'Free Meal Count (K-12)')",
+        "Column name is SQL reserved word"
+      ],
+      "how_to_apply": [
+        "1. Identify columns/tables needing quotes",
+        "2. Use double quotes: \"Column Name\"",
+        "3. Do NOT use single quotes (those are for string values)",
+        "4. In SQLite, do NOT use schema-qualified names"
+      ],
+      "example": {
+        "correct": "SELECT \"County Name\", \"Free Meal Count (K-12)\" FROM frpm",
+        "wrong": "SELECT 'County Name', 'Free Meal Count (K-12)' FROM frpm"
+      },
+      "related_tips": [
+        "TIP036",
+        "TIP037"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "subquery",
+        "in",
+        "exists",
+        "membership"
+      ]
+    },
+    {
+      "id": "TIP036",
+      "category": "sql_syntax",
+      "priority": "medium",
+      "title": "Use Aliases for Calculated Columns",
+      "description": "When exploring calculations, give meaningful aliases to calculated columns, aggregations, and complex expressions using AS.",
+      "when_to_apply": [
+        "Using calculated expression (e.g., column1 + column2)",
+        "Using aggregate function",
+        "Expression is complex or unclear"
+      ],
+      "how_to_apply": [
+        "1. After expression, add AS alias_name",
+        "2. Choose descriptive alias (e.g., total_count, avg_score, ratio)",
+        "3. Alias can be used in ORDER BY (but not WHERE of same level)"
+      ],
+      "example": {
+        "with_alias": "SELECT CAST(numerator AS REAL) / denominator AS ratio, COUNT(*) AS total_count FROM table"
+      },
+      "related_tips": [
+        "TIP035",
+        "TIP037"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "subquery",
+        "scalar",
+        "single_value"
+      ]
+    },
+    {
+      "id": "TIP037",
+      "category": "sql_syntax",
+      "priority": "high",
+      "title": "Cannot Use Column Alias in WHERE Clause of Same Level",
+      "description": "When exploring, note that column aliases defined in SELECT cannot be used in WHERE clause of the same query level. Use subquery or repeat expression.",
+      "when_to_apply": [
+        "You defined alias in SELECT",
+        "You want to filter by that alias",
+        "Getting 'no such column' error for alias"
+      ],
+      "how_to_apply": [
+        "1. Option 1: Use subquery",
+        "   SELECT * FROM (SELECT expr AS alias FROM table) WHERE alias > value",
+        "2. Option 2: Repeat expression in WHERE",
+        "   SELECT expr AS alias FROM table WHERE expr > value",
+        "3. Option 3: Use CTE",
+        "   WITH cte AS (SELECT expr AS alias FROM table) SELECT * FROM cte WHERE alias > value"
+      ],
+      "example": {
+        "wrong": "SELECT value * 2 AS doubled FROM table WHERE doubled > 10;",
+        "correct": "SELECT * FROM (SELECT value * 2 AS doubled FROM table) WHERE doubled > 10;"
+      },
+      "related_tips": [
+        "TIP033",
+        "TIP034",
+        "TIP036"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "syntax",
+        "cast",
+        "type_conversion",
+        "data_type"
+      ]
+    },
+    {
+      "id": "TIP038",
+      "category": "common_pitfalls",
+      "priority": "critical",
+      "title": "Never Hard-Code Values Discovered in Exploration",
+      "description": "When exploring, do NOT hard-code values you discovered unless they are explicitly mentioned in the question.",
+      "when_to_apply": [
+        "You used [EXPLORE] and discovered specific values (e.g., saw 'CA', 'NY', 'TX')",
+        "You're tempted to hard-code those values in SQL",
+        "The value is NOT explicitly mentioned in question or evidence"
+      ],
+      "how_to_apply": [
+        "1. If value is in question → OK to use",
+        "2. If value is in evidence → OK to use",
+        "3. If value is only from exploration → DO NOT hard-code",
+        "4. Use dynamic query or subquery instead"
+      ],
+      "example": {
+        "wrong": "WHERE status = 'Active' -- you saw 'Active' in exploration but question doesn't mention it",
+        "correct": "WHERE status = (SELECT status FROM ... WHERE ...) -- dynamic",
+        "also_correct": "WHERE status = 'Active' -- if question explicitly says 'active status'"
+      },
+      "related_tips": [
+        "TIP007",
+        "TIP019",
+        "TIP023"
+      ],
+      "when_NOT_to_apply": [
+        "Value is explicitly in question (e.g., question says 'California')",
+        "Value is specified in evidence (e.g., evidence says 'CA')",
+        "You're using a value from question/evidence, not from exploration"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "syntax",
+        "null",
+        "null_handling",
+        "is_null"
+      ]
+    },
+    {
+      "id": "TIP039",
+      "category": "common_pitfalls",
+      "priority": "high",
+      "title": "Handle NULL Values Appropriately",
+      "description": "When exploring, be aware of NULL values in aggregations, comparisons, and joins. Filter or handle them explicitly.",
+      "when_to_apply": [
+        "Using MAX, MIN, AVG, SUM",
+        "Comparing values",
+        "Joining tables"
+      ],
+      "how_to_apply": [
+        "1. For extreme values: Add WHERE column IS NOT NULL",
+        "2. For aggregations: Decide if NULL should be excluded (default) or counted",
+        "3. For comparisons: Remember NULL != NULL, use IS NULL / IS NOT NULL",
+        "4. For default values: Use COALESCE(column, default_value)"
+      ],
+      "example": {
+        "filter_nulls": "WHERE score IS NOT NULL",
+        "default_value": "COALESCE(phone, 'N/A')",
+        "count_nulls": "COUNT(*) - COUNT(column) -- number of NULLs"
+      },
+      "related_tips": [
+        "TIP032",
+        "TIP021",
+        "TIP026"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "syntax",
+        "distinct",
+        "unique_values",
+        "remove_duplicates"
+      ]
+    },
+    {
+      "id": "TIP040",
+      "category": "common_pitfalls",
+      "priority": "high",
+      "title": "Avoid Integer Division - Use CAST for Float Results",
+      "description": "When exploring calculations in SQLite, note that dividing two integers gives integer result. Use CAST(x AS REAL) to get float result.",
+      "when_to_apply": [
+        "Evidence contains division formula (e.g., 'X = A / B')",
+        "Question asks for ratio, percentage, or average",
+        "Any division operation that should return decimal result"
+      ],
+      "how_to_apply": [
+        "1. Identify division operations",
+        "2. Cast numerator to REAL: CAST(numerator AS REAL) / denominator",
+        "3. Or cast denominator: numerator / CAST(denominator AS REAL)",
+        "4. Or cast both if needed"
+      ],
+      "example": {
+        "wrong": "SELECT 5 / 2 -- returns 2 (integer)",
+        "correct": "SELECT CAST(5 AS REAL) / 2 -- returns 2.5 (float)"
+      },
+      "related_tips": [
+        "TIP027",
+        "TIP002"
+      ],
+      "when_NOT_to_apply": [
+        "No division operation",
+        "Division result should be integer (e.g., counting)"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "syntax",
+        "division",
+        "float_division",
+        "cast_real"
+      ]
+    },
+    {
+      "id": "TIP041",
+      "category": "common_pitfalls",
+      "priority": "medium",
+      "title": "Apply Entity Isolation for Mixed-Data Tables",
+      "description": "When exploring tables with mixed entity types (e.g., different metrics in same table), filter by entity type before aggregating.",
+      "when_to_apply": [
+        "Table has type/category column indicating different entities",
+        "Question asks about specific entity type",
+        "Aggregating data that should be isolated by type"
+      ],
+      "how_to_apply": [
+        "1. Identify if table has mixed data (check schema or explore)",
+        "2. Find entity type column (e.g., MetricID, Type, Category)",
+        "3. Add WHERE clause to filter for specific entity",
+        "4. Then apply aggregation"
+      ],
+      "example": {
+        "wrong": "SELECT SUM(value) FROM metrics; -- sums ALL metrics!",
+        "correct": "SELECT SUM(value) FROM metrics WHERE MetricID = 'population';"
+      },
+      "related_tips": [
+        "TIP023",
+        "TIP026"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "pitfall",
+        "common_error",
+        "avoid_mistake"
+      ]
+    },
+    {
+      "id": "TIP042",
+      "category": "common_pitfalls",
+      "priority": "medium",
+      "title": "Prefix Columns with Table Alias When Joining",
+      "description": "When exploring joins, prefix all columns with table alias to avoid ambiguous column errors.",
+      "when_to_apply": [
+        "Using JOIN",
+        "Both tables have columns with same name",
+        "Getting 'ambiguous column name' error"
+      ],
+      "how_to_apply": [
+        "1. Give each table an alias: FROM table1 t1 JOIN table2 t2",
+        "2. Prefix all columns: t1.column, t2.column",
+        "3. Even if column is unique, prefixing improves clarity",
+        "4. Required for columns that exist in both tables"
+      ],
+      "example": {
+        "wrong": "SELECT name, score FROM students s JOIN classes c ON s.class_id = c.id WHERE name = 'Math'; -- ambiguous 'name'",
+        "correct": "SELECT s.name, s.score FROM students s JOIN classes c ON s.class_id = c.id WHERE c.name = 'Math';"
+      },
+      "related_tips": [
+        "TIP020",
+        "TIP035"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "pitfall",
+        "ambiguous_column",
+        "qualify_column"
+      ]
+    },
+    {
+      "id": "TIP043",
+      "category": "advanced_patterns",
+      "priority": "low",
+      "title": "Use Conditional Aggregation with CASE",
+      "description": "When exploring aggregations of different subsets in one query, use CASE inside aggregate functions.",
+      "when_to_apply": [
+        "Need multiple aggregations with different conditions",
+        "Question asks for counts/sums of different categories",
+        "Want to pivot data"
+      ],
+      "how_to_apply": [
+        "1. Use CASE WHEN inside aggregate function",
+        "2. Pattern: SUM(CASE WHEN condition THEN value ELSE 0 END)",
+        "3. Can have multiple such expressions in same SELECT"
+      ],
+      "example": {
+        "sql": "SELECT category, SUM(CASE WHEN type = 'A' THEN value ELSE 0 END) AS sum_a, SUM(CASE WHEN type = 'B' THEN value ELSE 0 END) AS sum_b FROM table GROUP BY category"
+      },
+      "related_tips": [
+        "TIP026",
+        "TIP028"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "advanced_patterns"
+      ]
+    },
+    {
+      "id": "TIP044",
+      "category": "advanced_patterns",
+      "priority": "low",
+      "title": "Use Window Functions for Ranking",
+      "description": "When exploring ranking, row numbering, or running calculations, use window functions (RANK, ROW_NUMBER, etc.).",
+      "when_to_apply": [
+        "Need to rank rows",
+        "Need row numbers",
+        "Need running totals or moving averages"
+      ],
+      "how_to_apply": [
+        "1. Use RANK() OVER (ORDER BY column) for ranking with ties",
+        "2. Use ROW_NUMBER() OVER (ORDER BY column) for unique row numbers",
+        "3. Use PARTITION BY to rank within groups",
+        "4. Use window frame for running calculations"
+      ],
+      "example": {
+        "ranking": "SELECT name, score, RANK() OVER (ORDER BY score DESC) AS rank FROM students",
+        "per_group": "SELECT name, category, RANK() OVER (PARTITION BY category ORDER BY score DESC) AS rank FROM students"
+      },
+      "related_tips": [
+        "TIP030",
+        "TIP045"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "advanced_patterns"
+      ]
+    },
+    {
+      "id": "TIP045",
+      "category": "advanced_patterns",
+      "priority": "low",
+      "title": "Find Top N Per Group with Window Functions",
+      "description": "When exploring top N records per category, use ROW_NUMBER() with PARTITION BY, then filter.",
+      "when_to_apply": [
+        "Question asks for 'top N per category'",
+        "Need best/worst records in each group",
+        "Simple GROUP BY + LIMIT doesn't work"
+      ],
+      "how_to_apply": [
+        "1. Use CTE with ROW_NUMBER() OVER (PARTITION BY category ORDER BY value)",
+        "2. In outer query, filter WHERE row_number <= N",
+        "3. This gives top N for each category"
+      ],
+      "example": {
+        "sql": "WITH ranked AS (SELECT category, name, value, ROW_NUMBER() OVER (PARTITION BY category ORDER BY value DESC) AS rn FROM table) SELECT category, name, value FROM ranked WHERE rn <= 3"
+      },
+      "related_tips": [
+        "TIP044",
+        "TIP034"
+      ],
+      "selection_type": "conditional",
+      "keywords": [
+        "advanced_patterns"
+      ]
+    },
+    {
+      "id": "TIP043",
+      "category": "output_columns",
+      "priority": "critical",
+      "title": "SELECT Clause Precision - Return ONLY Requested Columns",
+      "description": "Explore ensuring the SELECT clause returns ONLY the columns explicitly requested in the question, in the exact order mentioned. Do NOT include columns used for filtering, sorting, or intermediate calculations unless explicitly requested.",
+      "keywords": [
+        "output",
+        "select",
+        "precision",
+        "exact_columns",
+        "column_selection",
+        "exclude_non_output"
+      ],
+      "when_to_apply": [
+        "ALWAYS - this is a fundamental rule for every query",
+        "Especially when question says 'List X', 'What is Y', 'Name Z'",
+        "When columns are used in WHERE or ORDER BY but not requested in output"
+      ],
+      "how_to_apply": [
+        "1. Parse question to identify EXACTLY what should be returned",
+        "2. List output columns in the EXACT order they appear in question",
+        "3. Exclude columns used only for filtering (WHERE clause)",
+        "4. Exclude columns used only for sorting (ORDER BY clause)",
+        "5. Exclude intermediate calculation columns unless requested",
+        "6. Double-check: Does SELECT match question's output requirements?"
+      ],
+      "example": {
+        "question": "List account IDs with the lowest amount",
+        "correct": "SELECT account_id FROM ... WHERE amount = (SELECT MIN(amount) FROM ...)",
+        "wrong": "SELECT account_id, amount FROM ... ORDER BY amount LIMIT 1",
+        "why_wrong": "Question only asks for 'account IDs', not 'account IDs and amounts'. Including 'amount' in SELECT is incorrect even though it's used for filtering."
+      },
+      "related_tips": [
+        "TIP008",
+        "TIP009",
+        "TIP010",
+        "TIP011"
+      ],
+      "selection_type": "always"
+    },
+    {
+      "id": "TIP044",
+      "category": "evidence_enforcement",
+      "priority": "critical",
+      "title": "Evidence Formula Preservation - No Rephrasing Allowed",
+      "description": "When evidence provides a formula or calculation method, explore preserving it EXACTLY. Do NOT rephrase, simplify, or use 'equivalent' built-in functions. The evidence formula is authoritative and may have subtle semantic differences from standard functions.",
+      "keywords": [
+        "evidence",
+        "formula",
+        "exact_preservation",
+        "no_rephrase",
+        "calculation",
+        "authoritative"
+      ],
+      "when_to_apply": [
+        "Evidence contains ANY mathematical formula or calculation method",
+        "Evidence says 'calculate X as...', 'X = formula', 'X is defined as...'",
+        "ALWAYS when evidence provides calculation guidance"
+      ],
+      "how_to_apply": [
+        "1. Identify the complete formula in evidence",
+        "2. Implement it EXACTLY as written (same operators, same order)",
+        "3. Do NOT substitute with built-in functions (e.g., AVG() for sum/count)",
+        "4. Use CAST for proper data types (e.g., CAST AS REAL for division)",
+        "5. Preserve all parentheses and operator precedence from evidence",
+        "6. Add comment in SQL: -- Formula from evidence: [exact formula]"
+      ],
+      "example": {
+        "question": "Districts where average of average math score > 400",
+        "evidence": "Average of average = sum(average math scores) / count(schools)",
+        "correct": "HAVING CAST(SUM(AvgScrMath) AS REAL) / COUNT(cds) > 400  -- Formula from evidence",
+        "wrong": "HAVING AVG(AvgScrMath) > 400",
+        "why_wrong": "Using AVG() instead of sum/count changes semantics: AVG() computes average of all rows in group, while sum/count computes average of averages (different when groups have different sizes). Evidence formula is authoritative."
+      },
+      "related_tips": [
+        "TIP002",
+        "TIP027",
+        "TIP040"
+      ],
+      "selection_type": "conditional"
+    },
+    {
+      "id": "TIP045",
+      "category": "filter_implementation",
+      "priority": "critical",
+      "title": "WHERE Clause from Evidence - Extract Exact Conditions",
+      "description": "When evidence specifies how to filter data (column names, values, or conditions), explore extracting and implementing these EXACTLY. Do NOT interpret, translate, or use alternative columns/values.",
+      "keywords": [
+        "evidence",
+        "where",
+        "filter",
+        "exact_condition",
+        "condition_extraction",
+        "no_interpretation"
+      ],
+      "when_to_apply": [
+        "Evidence specifies a column to filter on (e.g., 'EILCode = HS')",
+        "Evidence provides exact values to filter (e.g., \"'POPLATEK TYDNE' means weekly\")",
+        "Evidence clarifies which column an ambiguous term refers to",
+        "ALWAYS when evidence provides filtering guidance"
+      ],
+      "how_to_apply": [
+        "1. Scan evidence for filtering information (column names, values, conditions)",
+        "2. Extract the EXACT column name specified in evidence",
+        "3. Extract the EXACT value specified in evidence (preserve quotes, case, language)",
+        "4. Build WHERE clause using these exact elements",
+        "5. Do NOT substitute with 'similar' or 'semantically equivalent' columns/values",
+        "6. Add comment in SQL: -- Condition from evidence"
+      ],
+      "example": {
+        "question": "High schools with Lunch Provision 2",
+        "evidence": "High school can be represented as EILCode = 'HS'",
+        "correct": "WHERE EILCode = 'HS' AND \"NSLP Provision Status\" = 'Lunch Provision 2'  -- EILCode from evidence",
+        "wrong": "WHERE \"School Type\" = 'High Schools (Public)' AND \"NSLP Provision Status\" = 'Lunch Provision 2'",
+        "why_wrong": "Evidence explicitly specifies EILCode = 'HS', but query uses 'School Type' instead. Even if semantically similar, ignoring evidence-specified column leads to wrong results."
+      },
+      "related_tips": [
+        "TIP001",
+        "TIP003",
+        "TIP004",
+        "TIP005"
+      ],
+      "selection_type": "conditional"
+    },
+    {
+      "id": "TIP046",
+      "category": "aggregation",
+      "priority": "high",
+      "title": "Precision Preservation - No Arbitrary Rounding",
+      "description": "When exploring calculations, do NOT apply ROUND() unless the question explicitly specifies precision requirements.",
+      "keywords": [
+        "round",
+        "precision",
+        "decimal",
+        "accuracy",
+        "no_rounding"
+      ],
+      "when_to_apply": [
+        "ANY calculation or aggregation that produces decimal results",
+        "Question does NOT specify 'round to X decimal places'"
+      ],
+      "how_to_apply": [
+        "1. Perform calculations without ROUND() by default",
+        "2. Only apply ROUND(value, N) if question explicitly says 'round to N decimal places'",
+        "3. If question says 'percentage', use CAST(... AS REAL) * 100 without rounding",
+        "4. Let the database return natural precision"
+      ],
+      "example": {
+        "question": "Calculate the average salary for each department",
+        "correct": "SELECT department, AVG(salary) FROM employees GROUP BY department",
+        "wrong": "SELECT department, ROUND(AVG(salary), 2) FROM employees GROUP BY department",
+        "why_wrong": "Question does not specify rounding. Applying ROUND() arbitrarily loses precision and may not match expected results."
+      },
+      "related_tips": [
+        "TIP027",
+        "TIP048"
+      ],
+      "selection_type": "always"
+    },
+    {
+      "id": "TIP047",
+      "category": "aggregation",
+      "priority": "high",
+      "title": "Ratio Calculation - Count All Occurrences",
+      "description": "When exploring calculations with ratios or percentages, count ALL occurrences (including duplicates) unless the question explicitly asks for DISTINCT counts.",
+      "keywords": [
+        "ratio",
+        "percentage",
+        "proportion",
+        "count",
+        "distinct",
+        "no_distinct"
+      ],
+      "when_to_apply": [
+        "Calculating percentages, ratios, or proportions",
+        "Question does NOT explicitly say 'distinct' or 'unique'",
+        "Counting occurrences for statistical calculations"
+      ],
+      "how_to_apply": [
+        "1. Use COUNT(*) or COUNT(column) for ratio calculations by default",
+        "2. Only use COUNT(DISTINCT column) if question explicitly mentions 'unique' or 'distinct'",
+        "3. For percentage: numerator and denominator should both use same counting method",
+        "4. Example: 'percentage of orders' means count all orders, not distinct order IDs"
+      ],
+      "example": {
+        "question": "What percentage of orders were placed by premium customers?",
+        "correct": "SELECT CAST(COUNT(CASE WHEN customer_type = 'premium' THEN 1 END) AS REAL) * 100 / COUNT(*) FROM orders",
+        "wrong": "SELECT CAST(COUNT(DISTINCT CASE WHEN customer_type = 'premium' THEN order_id END) AS REAL) * 100 / COUNT(DISTINCT order_id) FROM orders",
+        "why_wrong": "Question asks for percentage of orders (count all), not percentage of distinct orders. Using DISTINCT changes the calculation semantics."
+      },
+      "related_tips": [
+        "TIP027",
+        "TIP046",
+        "TIP048"
+      ],
+      "selection_type": "conditional"
+    },
+    {
+      "id": "TIP048",
+      "category": "aggregation",
+      "priority": "high",
+      "title": "Percentage Calculation - CAST to REAL and Multiply by 100",
+      "description": "When calculating percentages, always CAST the numerator to REAL before division, then multiply by 100. ",
+      "keywords": [
+        "percentage",
+        "cast",
+        "real",
+        "division",
+        "multiply_100"
+      ],
+      "when_to_apply": [
+        "ANY percentage calculation",
+        "Question asks for 'percentage', 'percent', or '%'",
+        "Calculating ratios that should be expressed as percentages"
+      ],
+      "how_to_apply": [
+        "1. CAST numerator to REAL: CAST(numerator AS REAL)",
+        "2. Divide by denominator: CAST(numerator AS REAL) / denominator",
+        "3. Multiply by 100: CAST(numerator AS REAL) * 100 / denominator",
+        "4. Do NOT use ROUND() unless question specifies precision"
+      ],
+      "example": {
+        "question": "Calculate the percentage of completed tasks",
+        "correct": "SELECT CAST(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(*) AS completion_percentage FROM tasks",
+        "wrong_1": "SELECT SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) * 100 / COUNT(*) FROM tasks",
+        "wrong_2": "SELECT CAST(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS REAL) / COUNT(*) FROM tasks",
+        "why_wrong": "wrong_1: Integer division may truncate result. wrong_2: Missing * 100, returns decimal (0.75) instead of percentage (75)."
+      },
+      "related_tips": [
+        "TIP027",
+        "TIP046",
+        "TIP047"
+      ],
+      "selection_type": "conditional"
+    },
+    {
+      "id": "TIP049",
+      "category": "aggregation",
+      "priority": "high",
+      "title": "DISTINCT Usage - List vs Count",
+      "description": "Use DISTINCT when listing entities (names, IDs, items) to avoid duplicates. Do NOT use DISTINCT when counting occurrences for statistical purposes unless explicitly asked for unique counts.",
+      "keywords": [
+        "distinct",
+        "list",
+        "count",
+        "how_many",
+        "what_is",
+        "which",
+        "list_all",
+        "enumeration"
+      ],
+      "when_to_apply": [
+        "Question asks 'How many [entities]' - use DISTINCT to count unique entities",
+        "Question asks 'What is/are [entities]' - use DISTINCT to list unique entities",
+        "Question asks 'Which [entities]' - use DISTINCT to list unique entities",
+        "Question asks 'List all [entities]' - use DISTINCT to avoid duplicate listings",
+        "Question asks for percentage/ratio of occurrences - do NOT use DISTINCT (count all)"
+      ],
+      "how_to_apply": [
+        "1. Identify if question asks for entity enumeration (names, IDs, items) or statistical counting",
+        "2. For enumeration: SELECT DISTINCT entity_column FROM ...",
+        "3. For counting unique entities: COUNT(DISTINCT entity_column)",
+        "4. For statistical counting (ratios, percentages): COUNT(*) or COUNT(column) without DISTINCT",
+        "5. Keywords 'how many', 'what is', 'which', 'list all' usually indicate entity enumeration"
+      ],
+      "example": {
+        "question_list": "List all customers who placed orders",
+        "correct_list": "SELECT DISTINCT customer_name FROM orders",
+        "wrong_list": "SELECT customer_name FROM orders",
+        "why_wrong_list": "Without DISTINCT, customers who placed multiple orders appear multiple times in the list.",
+        "question_count": "How many customers placed orders?",
+        "correct_count": "SELECT COUNT(DISTINCT customer_id) FROM orders",
+        "wrong_count": "SELECT COUNT(customer_id) FROM orders",
+        "why_wrong_count": "Without DISTINCT, counts each order instead of unique customers.",
+        "question_ratio": "What percentage of orders were completed?",
+        "correct_ratio": "SELECT CAST(COUNT(CASE WHEN status = 'completed' THEN 1 END) AS REAL) * 100 / COUNT(*) FROM orders",
+        "wrong_ratio": "SELECT CAST(COUNT(DISTINCT CASE WHEN status = 'completed' THEN order_id END) AS REAL) * 100 / COUNT(DISTINCT order_id) FROM orders",
+        "why_wrong_ratio": "Question asks for percentage of orders (count all occurrences), not percentage of unique order IDs."
+      },
+      "related_tips": [
+        "TIP047",
+        "TIP048"
+      ],
+      "selection_type": "conditional"
+    }
+  ]
+}

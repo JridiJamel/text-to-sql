@@ -1,0 +1,7 @@
+birbench/data/
+*.sqlite
+*.sqlite3
+*.db
+__pycache__/
+*.pyc
+.DS_Store
